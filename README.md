@@ -7,10 +7,7 @@ Built with FastAPI, SQLite and pytest. All data in this repo is **synthetic**.
 
 ## Why I built it
 
-I wanted to practice building a backend service end to end — API design, a data layer,
-a non-trivial algorithm, and a real test suite — on a domain I find interesting. Trip
-planning for EVs is a nice fit because the problem is easy to state ("stop as few times
-as possible, and never strand the car") but still forces real design decisions.
+I wanted to build a model which predicts where EV drivers are most likely to run out of charge on highways. Its built basically for EV vehicles.
 
 ## Run it
 
