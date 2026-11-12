@@ -7,9 +7,10 @@ Built with FastAPI, SQLite and pytest. All data in this repo is **synthetic**.
 
 ## Why I built it
 
-<!-- WRITE THIS IN YOUR OWN WORDS (2-3 sentences). Example direction: you worked on EV
-stranding-risk analysis during an internship and wanted to build the routing side as a clean,
-tested backend service from scratch. Do not include any employer data. -->
+I wanted to practice building a backend service end to end — API design, a data layer,
+a non-trivial algorithm, and a real test suite — on a domain I find interesting. Trip
+planning for EVs is a nice fit because the problem is easy to state ("stop as few times
+as possible, and never strand the car") but still forces real design decisions.
 
 ## Run it
 
@@ -49,15 +50,42 @@ curl -X POST localhost:8000/plan-trip -H 'content-type: application/json' \
 
 ## How the planner works
 
-<!-- FILL IN after you write app/planner.py: the greedy approach in your own words. -->
+The route is modelled as a straight line from km 0 to the destination, with chargers at
+fixed positions along it. The car's usable range at any moment is
+`range_km * (battery_pct - reserve_pct) / 100` — you never plan to dip below the reserve.
+Every stop recharges to 100%.
+
+The algorithm is greedy:
+
+1. If the destination is within current reach, stop — return the stops so far.
+2. Otherwise, look at all **operational** chargers ahead of the current position that are
+   within reach, and pick the **furthest** one.
+3. If none is reachable, the trip is infeasible and `NoFeasibleRouteError` is raised.
+4. Otherwise "drive" there, recharge to 100%, and repeat.
+
+Picking the furthest reachable charger is optimal for minimising the number of stops:
+it leaves the car as close to the destination as possible, and any closer stop could
+always be skipped in favour of the furthest one without making the rest of the trip worse.
+The loop always terminates because the car's position strictly increases on every
+iteration and charger positions are finite.
+
+For a real road network you'd replace the straight line with a weighted graph and run
+Dijkstra/A* with charging time in the cost, but the greedy version keeps the domain
+logic small enough to test exhaustively.
 
 ## Design decisions
 
-<!-- Fill in 3-4 of these once you have made them. Suggested topics: -->
-- **Greedy furthest-charger strategy:** TODO
-- **`/plan-trip` returns 200 with `feasible: false` instead of an error:** TODO
-- **Plain `sqlite3` instead of an ORM:** TODO
-- **Reserve battery percentage:** TODO
+- **Greedy furthest-charger strategy:** minimises stop count, is O(n log n) thanks to one
+  up-front sort, and is easy to reason about and test. Proven optimal for this simplified
+  model by an exchange argument.
+- **`/plan-trip` returns 200 with `feasible: false` instead of an error:** "no valid plan
+  exists" is a valid answer to the question the client asked, not a malformed request, so
+  a 4xx would be misleading. The client can still distinguish the cases via the body.
+- **Plain `sqlite3` instead of an ORM:** the data model is a single table, so an ORM would
+  add more code than it saves. All SQL lives in `app/db.py`, so swapping to Postgres later
+  touches one file only.
+- **Reserve battery percentage:** real routing never plans to arrive at 0%. A configurable
+  `reserve_pct` (default 10%) keeps that safety margin explicit and testable.
 
 ## What I would do next
 
